@@ -59,6 +59,8 @@ def restaurant_detail(request, restaurant_id):
     return render(request, 'detail.html', context)
 
 def restaurant_create(request):
+    if request.user.is_anonymous:
+        return redirect ('signin')
     form = RestaurantForm()
     if request.method == "POST":
         form = RestaurantForm(request.POST, request.FILES)
@@ -75,13 +77,16 @@ def restaurant_create(request):
 def item_create(request, restaurant_id):
     form = ItemForm()
     restaurant = Restaurant.objects.get(id=restaurant_id)
+    owner=restaurant.owner
+    if owner.id is not request.user.id and not request.user.is_staff:
+        return redirect ('noaccess')
     if request.method == "POST":
         form = ItemForm(request.POST)
         if form.is_valid():
             item = form.save(commit=False)
             item.restaurant = restaurant
             item.save()
-            return redirect('restaurant-detail', restaurant_id)
+            return redirect('restaurant-detail', restaurant_id=restaurant_id)
     context = {
         "form":form,
         "restaurant": restaurant,
@@ -90,7 +95,13 @@ def item_create(request, restaurant_id):
 
 def restaurant_update(request, restaurant_id):
     restaurant_obj = Restaurant.objects.get(id=restaurant_id)
+
+    owner = restaurant_obj.owner
+    if owner.id is not request.user.id and not request.user.is_staff:
+        return redirect('restaurant-detail', restaurant_id=restaurant_id)
+
     form = RestaurantForm(instance=restaurant_obj)
+
     if request.method == "POST":
         form = RestaurantForm(request.POST, request.FILES, instance=restaurant_obj)
         if form.is_valid():
@@ -105,4 +116,11 @@ def restaurant_update(request, restaurant_id):
 def restaurant_delete(request, restaurant_id):
     restaurant_obj = Restaurant.objects.get(id=restaurant_id)
     restaurant_obj.delete()
+    if restaurant_obj.owner.id is not request.user.id:
+        return redirect ('noaccess')
     return redirect('restaurant-list')
+
+def noaccess(request):
+    return render(request, 'noaccess.html')
+
+
